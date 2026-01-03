@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendance Entry</title>
+    <!-- Import FontAwesome for icons (e.g., checkmarks, warning signs) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        /* Define colors once to use throughout the app */
+        :root { 
+            --primary: #2563eb; 
+            --primary-dark: #1d4ed8; 
+            --success: #16a34a; 
+            --danger: #dc2626; 
+            --gray: #64748b; 
+            --border: #e2e8f0; 
+            --bg: #f4f7f6; 
+        }
+        * { box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            padding: 20px; 
+            margin: 0; 
+            color: #334155; 
+        }
+
+        /* --- MAIN CARD CONTAINER --- */
+        /* The white box that holds all the form steps */
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08); 
+            width: 100%; 
+            max-width: 420px; 
+            position: relative; /* Needed for absolute positioning of overlays */
+        }
+        
+        /* --- EXPIRED TOKEN OVERLAY --- */
+        /* Covers the whole card if the QR code is too old */
+        #expiredOverlay { 
+            position: absolute; top:0; left:0; width:100%; height:100%; 
+            background: rgba(255,255,255,0.95); z-index: 100; border-radius: 16px; 
+            display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; text-align: center; padding: 20px; 
+        }
+        .expired-icon { font-size: 50px; color: var(--danger); margin-bottom: 20px; }
+        
+        /* --- TYPOGRAPHY --- */
+        h2, h3 { text-align: center; color: var(--primary); margin-top: 0; margin-bottom: 10px; }
+        h3 { font-size: 1.25rem; }
+        p.note { text-align:center; font-size:13px; color: var(--gray); margin-bottom: 25px; line-height: 1.5; }
+        
+        /* --- FORM ELEMENTS --- */
+        input, textarea, button { 
+            width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; 
+            border: 1px solid #cbd5e1; font-size: 16px; outline: none; transition: 0.2s; 
+        }
+        input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        textarea { resize: vertical; min-height: 100px; font-family: inherit; }
+        
+        /* --- BUTTON STYLES --- */
+        button { 
+            background: var(--primary); color: #fff; font-weight: 600; border: none; 
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; 
+        }
+        button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        button:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
+        
+        /* --- UTILITIES --- */
+        .hidden { display: none !important; }
+        
+        /* --- USER INFO BOX --- */
+        /* Displays Name/Uni/Dept after login */
+        .info-box { 
+            background: #eff6ff; padding: 16px; border-radius: 12px; font-size: 14px; 
+            border-left: 5px solid var(--primary); margin-bottom: 20px; line-height: 1.6; 
+        }
+        
+        /* --- STATUS MESSAGES --- */
+        .status-msg { text-align: center; padding: 12px; border-radius: 8px; margin: 15px 0; font-weight: 600; font-size: 14px; }
+        .error-msg { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+        .success-msg { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+        
+        /* --- RESULT CARD STYLES --- */
+        /* The final receipt shown after submission */
+        .result-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 15px; text-align: left; }
+        .result-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { color: var(--gray); font-weight: 600; font-size: 13px; }
+        .result-value { color: #1e293b; font-weight: 500; font-size: 14px; text-align: right; }
+        .result-status { font-weight: 800; font-size: 18px; padding: 6px 16px; border-radius: 6px; letter-spacing: 0.5px; }
+        .PRESENT { color: #15803d; background: #dcfce7; }
+        .ABSENT { color: #b91c1c; background: #fee2e2; }
+        
+        /* --- RATING SECTION --- */
+        .section-title { margin: 15px 0 10px; font-weight: 700; font-size: 14px; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; }
+        .rating-container { display: flex; gap: 8px; margin-bottom: 15px; }
+        .rating-item { flex: 1; }
+        .rating-item input { display: none; }
+        /* Style labels as buttons */
+        .rating-item label { 
+            display: flex; justify-content: center; align-items: center; height: 48px; 
+            border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; 
+            cursor: pointer; font-weight: bold; color: var(--gray); transition: all 0.2s; 
+        }
+        /* Highlight selected rating */
+        .rating-item input:checked + label { 
+            background: var(--primary); color: #fff; border-color: var(--primary); 
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3); 
+        }
+        .required { color: var(--danger); }
+        
+        /* --- GPS ANIMATION PANEL --- */
+        /* Shows while waiting for satellite lock */
+        .loc-panel { 
+            background: #fff1f2; border: 1px dashed #fda4af; padding: 12px; border-radius: 10px; 
+            font-size: 13px; margin-top: 15px; text-align: center; color: #9f1239; 
+            animation: pulse 2s infinite; 
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        
+        /* --- DEVICE LOCK WARNING --- */
+        .device-lock-warning { 
+            background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; 
+            padding: 12px; border-radius: 10px; font-size: 13px; margin-bottom: 20px; 
+            display: flex; align-items: center; gap: 10px; 
+        }
+        
+        .checkbox-wrapper { display: flex; align-items: center; gap: 12px; font-size: 14px; cursor: pointer; margin: 20px 0; padding: 10px; border-radius: 8px; background: #f8fafc; border: 1px solid transparent; transition: all 0.2s; }
+        .checkbox-wrapper:hover { background: #f1f5f9; }
+        .checkbox-wrapper input { accent-color: var(--primary); width: 18px; height: 18px; cursor: pointer; }
+        
+        #qrError { text-align:center; padding: 20px; }
+        #qrError i { font-size: 40px; color: var(--danger); margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    
+    <!-- OVERLAY: Shown if QR Code time limit has passed -->
+    <div id="expiredOverlay" class="hidden">
+        <i class="fas fa-history expired-icon"></i>
+        <h2 style="color:var(--danger)">Time Expired</h2>
+        <p>This QR code is no longer valid.</p>
+        <p style="font-size:14px; color:#666">Please scan the <b>current code</b> on the screen.</p>
+        <button onclick="location.reload()" style="background:var(--gray); width:auto; padding:10px 20px;">Try Again</button>
+    </div>
+
+    <!-- ERROR: Shown if user tries to access URL directly without scanning QR -->
+    <div id="qrError" class="hidden">
+        <i class="fas fa-qrcode"></i>
+        <h2>Invalid Entry</h2>
+        <p>You can only access this system by scanning the <b>QR Code</b> on the screen.</p>
+        <p style="font-size:12px; color:#64748b">Direct link sharing is prohibited.</p>
+    </div>
+
+    <!-- STEP 1: LOGIN -->
+    <div id="step1" class="hidden">
+        <h2>Attendance Check-in</h2>
+        <p class="note">Enter your ID / TC Number to continue.</p>
+        
+        <!-- Shown if browser has been used by a specific ID before -->
+        <div id="deviceLockInfo" class="hidden"></div>
+        
+        <div id="loginStatus" class="status-msg hidden"></div>
+        
+        <input type="tel" id="studentId" maxlength="11" placeholder="Identity Number / Student ID" onkeypress="return event.charCode >= 48 && event.charCode <= 57" />
+        
+        <button id="btn1" onclick="login()"><span>Verify ID</span> <i class="fas fa-arrow-right"></i></button>
+        
+        <!-- GPS Status Panel -->
+        <div id="locPanel" class="loc-panel hidden">
+            <i class="fas fa-satellite-dish"></i> Acquiring GPS Location... <br>
+            <span style="font-size:11px; opacity:0.8; margin-top:4px; display:block;">Accuracy: ±<span id="curAcc">-</span>m | Samples: <span id="sampleCount">0</span>/3</span>
+        </div>
+    </div>
+
+    <!-- STEP 2: SUBMISSION (Hidden initially) -->
+    <div id="step2" class="hidden">
+        <h3>Welcome<br><span id="uName" style="color:#334155"></span></h3>
+        <div class="info-box">
+            <div style="margin-bottom:4px"><i class="fas fa-university"></i> <span id="uUni"></span></div>
+            <div><i class="fas fa-graduation-cap"></i> <span id="uDept"></span></div>
+        </div>
+        
+        <div class="section-title">Event Evaluation <span class="required">*</span></div>
+        <div class="rating-container">
+            <!-- Radio buttons styled as boxes 1-5 -->
+            <div class="rating-item"><input type="radio" name="rating" id="p1" value="1"><label for="p1">1</label></div>
+            <div class="rating-item"><input type="radio" name="rating" id="p2" value="2"><label for="p2">2</label></div>
+            <div class="rating-item"><input type="radio" name="rating" id="p3" value="3"><label for="p3">3</label></div>
+            <div class="rating-item"><input type="radio" name="rating" id="p4" value="4"><label for="p4">4</label></div>
+            <div class="rating-item"><input type="radio" name="rating" id="p5" value="5" checked><label for="p5">5</label></div>
+        </div>
+        
+        <textarea id="feedback" placeholder="Write your thoughts here (optional)..."></textarea>
+        
+        <label class="checkbox-wrapper"><input type="checkbox" id="check" /> <span>I confirm my physical attendance <span class="required">*</span></span></label>
+        
+        <div id="submitStatus" class="status-msg hidden"></div>
+        <button id="btn2" onclick="submitData()" style="background:var(--success)"><span>Submit Attendance</span> <i class="fas fa-check"></i></button>
+    </div>
+
+    <!-- STEP 3: RESULT (Hidden initially) -->
+    <div id="step3" class="hidden">
+        <h2 id="finalTitle" style="color:var(--success)">Status</h2>
+        <div class="result-card">
+            <div class="result-row"><span class="result-label">Name</span><span id="resName" class="result-value"></span></div>
+            <div class="result-row"><span class="result-label">University</span><span id="resUni" class="result-value"></span></div>
+            <div class="result-row"><span class="result-label">Department</span><span id="resDept" class="result-value"></span></div>
+            <div class="result-row"><span class="result-label">Distance</span><span id="resDist" class="result-value"></span></div>
+            <div class="result-row" style="border:none; margin-top:15px; flex-direction:column; align-items:center; background:#f8fafc; padding:15px; border-radius:8px;">
+                <span class="result-label" style="margin-bottom:8px;">Result</span>
+                <span id="resStatus" class="result-status"></span>
+            </div>
+        </div>
+        <button onclick="safeClose()" style="background:var(--gray); margin-top:20px">
+            <i class="fas fa-times"></i> Close
+        </button>
+    </div>
+</div>
+
+<script>
+/**
+ * DEVICE FINGERPRINTING LOGIC
+ * Tries to create a unique ID for the user's browser/device to prevent cheating.
+ */
+async function generateHybridFingerprint() {
+    try {
+        const components = [navigator.userAgent, navigator.language, screen.width + 'x' + screen.height];
+        const str = components.join('###');
+        let hash = 0;
+        // Simple hashing algorithm
+        for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
+        return "BACKUP-" + (hash >>> 0).toString(16).toUpperCase();
+    } catch (err) { return 'FALLBACK-' + Date.now(); }
+}
+
+async function getDeviceId() {
+    try {
+        // Attempt to use the external library FingerprintJS
+        const fpPromise = await import('https://openfpcdn.io/fingerprintjs/v4');
+        const fp = await fpPromise.load();
+        const result = await fp.get();
+        return result.visitorId;
+    } catch (error) { 
+        // If external library fails, use local hybrid method
+        return await generateHybridFingerprint(); 
+    }
+}
+
+// --- GLOBAL VARIABLES ---
+let capturedLoc = null; 
+// Default config (overwritten by server later)
+let sysConfig = { lat: 0, lng: 0, maxDistance: 1000 }; 
+let user = {};
+
+// Helper to show UI messages (Green for success, Red for error)
+function showStatus(id, msg, isError=true) {
+    const el = document.getElementById(id);
+    el.innerHTML = isError ? `<i class="fas fa-exclamation-circle"></i> ${msg}` : `<i class="fas fa-check-circle"></i> ${msg}`;
+    el.className = 'status-msg ' + (isError ? 'error-msg' : 'success-msg');
+    el.classList.remove('hidden');
+}
+
+// Haversine Formula for distance calculation (Client-side estimation)
+// Calculates distance between two GPS coordinates in meters
+function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const d = R * c; 
+    return Math.round(d * 1000); // Return meters
+}
+function deg2rad(deg) { return deg * (Math.PI/180); }
+
+// Populates the final result card with data from the server
+function fillResultPage(data, status, distanceInfo) {
+    document.getElementById('resName').textContent = data.name;
+    document.getElementById('resUni').textContent = data.university;
+    document.getElementById('resDept').textContent = data.department;
+    
+    let distText = distanceInfo !== undefined ? distanceInfo + " meters" : "Unknown";
+    if(typeof distanceInfo === 'string' && distanceInfo.includes('m')) distText = distanceInfo;
+    
+    document.getElementById('resDist').textContent = distText;
+    const statusEl = document.getElementById('resStatus');
+    statusEl.textContent = status;
+    statusEl.className = 'result-status ' + status; // Apply .PRESENT or .ABSENT class
+}
+
+// Wrapper to call Google Apps Script backend functions
+// Handles the promise structure and debug mode if running locally
+function runGoogleScript(funcName, ...args) {
+    return new Promise((resolve, reject) => {
+        if (typeof google === 'undefined') {
+            // DEBUG MODE (For local testing outside Google Apps Script)
+            setTimeout(() => {
+                 if (funcName === 'getSystemConfig') resolve({ lat: 41.0082, lng: 28.9784, maxDistance: 1000 });
+                 else if (funcName === 'loginStudent') resolve({ ok: true, name: 'Test User', university: 'Demo Uni', department: 'CS', alreadySubmitted: false });
+                 else if (funcName === 'processAttendance') resolve({ ok: true, status: 'PRESENT', distance: 50 });
+            }, 500);
+            return;
+        }
+        // Actual server call
+        google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[funcName](...args);
+    });
+}
+
+/**
+ * INITIALIZATION
+ * Runs when the page loads
+ */
+window.onload = function() {
+    // Retrieves the token injected by the server side script
+    let qrToken = "<?= serverQrCode ?>"; 
+    
+    // Check if we are in a test environment (token not replaced)
+    if (qrToken.includes("serverQrCode")) {
+        qrToken = "TEST_TOKEN_DEBUG";
+        console.warn("Test environment detected.");
+    }
+
+    // If no token exists, the user accessed the link directly. Show Error.
+    if (!qrToken || qrToken === "") {
+        document.getElementById('qrError').classList.remove('hidden');
+        return; 
+    }
+    
+    // Callback after token is validated
+    const onValidationComplete = function(isValid) {
+        if (!isValid) {
+            // Show expired overlay
+            document.getElementById('expiredOverlay').classList.remove('hidden');
+        } else {
+            // Token valid: Proceed to Step 1
+            sessionStorage.setItem('qrToken', qrToken);
+            user.qrToken = qrToken;
+            document.getElementById('step1').classList.remove('hidden');
+            
+            // Fetch GPS settings from server
+            initSystemConfig();
+            
+            // Check LocalStorage to see if this device is already "owned" by a student ID
+            const storedOwner = localStorage.getItem('secure_device_owner');
+            if (storedOwner) {
+                const masked = '********' + storedOwner.substring(storedOwner.length - 3);
+                const lockDiv = document.getElementById('deviceLockInfo');
+                lockDiv.className = 'device-lock-warning';
+                lockDiv.innerHTML = `<i class="fas fa-lock"></i> <div><b>Device Locked:</b> This browser is locked to ID ending in ${masked}.</div>`;
+                lockDiv.classList.remove('hidden');
+                document.getElementById('studentId').value = storedOwner;
+            }
+        }
+    };
+    
+    // Validate token with server
+    if (typeof google === 'undefined') {
+        setTimeout(() => onValidationComplete(true), 100);
+    } else {
+        google.script.run.withSuccessHandler(onValidationComplete).checkTokenValidity(qrToken);
+    }
+};
+
+async function initSystemConfig() {
+    try {
+        const config = await runGoogleScript('getSystemConfig');
+        sysConfig = config;
+    } catch (e) { console.warn("Could not fetch system config."); }
+}
+
+/**
+ * LOGIN FUNCTION
+ * Step 1: User enters ID -> Verify -> Start GPS
+ */
+async function login(){
+    const id = document.getElementById('studentId').value.trim();
+    if(id.length < 5){ showStatus('loginStatus','ID is too short.'); return; }
+    
+    // Security check: Ensure user isn't using someone else's locked device
+    const storedOwner = localStorage.getItem('secure_device_owner');
+    if (storedOwner && storedOwner !== id) { 
+        showStatus('loginStatus', `ACCESS DENIED: Device is locked to a different ID.`); 
+        return; 
+    }
+    
+    // UI Loading State
+    const btn = document.getElementById('btn1');
+    btn.disabled = true; 
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying...'; 
+    
+    try {
+        // Get Device Fingerprint
+        const deviceId = await getDeviceId();
+        
+        // Call Server to Login
+        const d = await runGoogleScript('loginStudent', id, deviceId);
+        
+        if(!d.ok){ 
+            showStatus('loginStatus', d.msg); 
+            btn.disabled=false; btn.innerHTML = 'Verify ID <i class="fas fa-arrow-right"></i>'; 
+            return; 
+        }
+        
+        // Lock this device to this student ID
+        if (!storedOwner) localStorage.setItem('secure_device_owner', id);
+        
+        user = { ...d, studentId: id, qrToken: sessionStorage.getItem('qrToken') };
+        
+        // Update UI with User Info
+        document.getElementById('uName').textContent = d.name;
+        document.getElementById('uUni').textContent = d.university;
+        document.getElementById('uDept').textContent = d.department;
+        
+        // Start GPS Acquisition
+        document.getElementById('locPanel').classList.remove('hidden');
+        btn.innerHTML = '<i class="fas fa-satellite"></i> Acquiring Satellite Data...';
+        
+        let samples = 0; let bestLoc = null; const TARGET_SAMPLES = 3;
+        
+        // Watch GPS position until we get 3 samples for accuracy
+        const watchId = navigator.geolocation.watchPosition(
+            (p) => {
+                samples++;
+                if (!bestLoc || p.coords.accuracy < bestLoc.accuracy) bestLoc = p.coords;
+                
+                document.getElementById('curAcc').textContent = Math.round(p.coords.accuracy);
+                document.getElementById('sampleCount').textContent = samples + "/" + TARGET_SAMPLES;
+                
+                // Once enough samples collected, move to Step 2
+                if (samples >= TARGET_SAMPLES) {
+                    navigator.geolocation.clearWatch(watchId);
+                    capturedLoc = bestLoc; 
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                }
+            },
+            (err) => {
+                // GPS Error Handling
+                navigator.geolocation.clearWatch(watchId);
+                let msg = "Location failed.";
+                if(err.code === 1) msg = "Location permission denied."; 
+                if(err.code === 2) msg = "No GPS signal.";
+                
+                showStatus('loginStatus', msg); 
+                btn.disabled = false; btn.innerHTML = 'Verify ID <i class="fas fa-arrow-right"></i>';
+                document.getElementById('locPanel').classList.add('hidden');
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    } catch (error) { 
+        showStatus('loginStatus','Error: ' + (error.message || error)); 
+        btn.disabled=false; btn.innerHTML='Verify ID <i class="fas fa-arrow-right"></i>'; 
+    }
+}
+
+/**
+ * SUBMIT FUNCTION
+ * Step 2: Rating, Feedback -> Submit to Server
+ */
+async function submitData(){
+    const ratingEl = document.querySelector('input[name="rating"]:checked');
+    if(!ratingEl){ showStatus('submitStatus','Please select a rating.'); return; }
+    if(!document.getElementById('check').checked){ showStatus('submitStatus','Please check the confirmation box.'); return; }
+    
+    // UI Loading State
+    const btn = document.getElementById('btn2');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting...';
+    
+    try {
+        const deviceId = await getDeviceId();
+        const finalLoc = capturedLoc || { latitude: 0, longitude: 0 };
+        let calculatedDist = 0;
+        
+        // Calculate distance on client side (for display purposes mostly, server does final check)
+        if (finalLoc.latitude !== 0 && sysConfig.lat !== 0) {
+            calculatedDist = getDistanceFromLatLonInMeters(finalLoc.latitude, finalLoc.longitude, sysConfig.lat, sysConfig.lng);
+        }
+        
+        // Construct payload for server
+        const payload = {
+            action: 'submit',
+            ...user, 
+            id: user.studentId, // Backend expects 'id', 'user' object has 'studentId'
+            deviceId: deviceId,
+            lat: finalLoc.latitude,
+            lng: finalLoc.longitude,
+            rating: ratingEl.value,      
+            feedback: document.getElementById('feedback').value,
+            qrToken : sessionStorage.getItem('qrToken')
+        };
+        
+        // Send data to server
+        const d = await runGoogleScript('processAttendance', payload);
+        
+        if(!d.ok){ 
+            showStatus('submitStatus', d.msg); 
+            btn.disabled=false; btn.innerHTML='Submit Attendance <i class="fas fa-check"></i>'; 
+            return; 
+        }
+        
+        // Use distance from server response if available, else use client calculation
+        let displayDist = d.distance;
+        if (displayDist === undefined) displayDist = calculatedDist;
+        
+        // Show Success Screen (Step 3)
+        fillResultPage(user, d.status, displayDist);
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step3').classList.remove('hidden');
+        document.getElementById('finalTitle').textContent = "Submission Successful";
+        
+    } catch (error) { 
+        showStatus('submitStatus','Submission Error: ' + error); 
+        btn.disabled=false; btn.innerHTML='Submit Attendance <i class="fas fa-check"></i>'; 
+    }
+}
+/**
+ * SAFE CLOSE FUNCTION
+ * Tries to close the window. If blocked by browser, shows a "Done" screen.
+ */
+function safeClose() {
+    // 1. Try to close the window normally
+    try {
+        window.open('','_self').close();
+    } catch (e) { console.log(e); }
+    
+    // 2. If the code reaches here, it means the browser blocked it.
+    // We replace the entire body with a "Goodbye" message.
+    document.body.innerHTML = `
+        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; text-align:center; font-family:sans-serif; color:#334155;">
+            <i class="fas fa-check-circle" style="font-size:60px; color:#16a34a; margin-bottom:20px;"></i>
+            <h1 style="margin:0;">You're all set!</h1>
+            <p style="margin-top:10px; color:#64748b;">Attendance recorded successfully.</p>
+            <p style="margin-top:20px; font-weight:bold;">You can now close this tab.</p>
+        </div>
+    `;
+}
+</script>
+</body>
+</html>

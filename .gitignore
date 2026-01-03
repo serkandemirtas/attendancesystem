@@ -1,0 +1,8 @@
+
+.clasp.json
+node_modules/
+.DS_Store
+.package.json
+.packege-lock.json
+.appsscript.json
+

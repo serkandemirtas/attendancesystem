@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live QR Attendance</title>
+    
+    <!-- Importing the QRCode.js library to generate QR codes on the client side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        /* --- GLOBAL STYLES --- */
+        /* Basic reset and dark theme setup. Flexbox is used to center everything on the screen. */
+        body { 
+            background: #111; 
+            color: #fff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+
+        h1 { margin-bottom: 20px; font-weight: 300; letter-spacing: 1px; }
+
+        /* --- QR CODE CONTAINER --- */
+        /* This white box holds the QR code. We add a shadow to make it "glow" against the dark background. */
+        #qrcode { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 16px; 
+            box-shadow: 0 0 50px rgba(37, 99, 235, 0.3); 
+            min-height: 300px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-direction: column; 
+        }
+
+        /* --- TIMER STYLES --- */
+        /* The container for the progress bar located below the QR code. */
+        .timer-container { width: 300px; margin-top: 30px; }
+        
+        /* The background track of the timer bar. */
+        .timer-bar { 
+            width: 100%; 
+            height: 8px; 
+            background: #333; 
+            border-radius: 4px; 
+            overflow: hidden; 
+        }
+        
+        /* The actual blue filling bar. Width is manipulated via JavaScript to show time remaining. */
+        .progress { 
+            height: 100%; 
+            background: #2563eb; 
+            width: 100%; 
+            transition: width 1s linear; /* Smooth transition for the 1-second updates */
+        }
+        
+        /* Status text styling (e.g., "Refreshing...", "Loading..."). */
+        #status { margin-top: 15px; color: #666; font-size: 14px; text-align: center; }
+        .loading-text { color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <!-- Main Title Area -->
+    <div style="text-align:center; margin-top:40px; width: 100%; display: flex; justify-content: center;">
+        <div style="font-size: 42px; font-weight: 900; color: #ffffff; text-transform: uppercase; letter-spacing: 2px; text-shadow: 3px 3px 15px rgba(37, 99, 235, 0.4); border-bottom: 3px solid #ffffff; padding-bottom: 10px; margin-bottom: 20px;">
+            ATTENDANCE ENTRY QR CODE
+        </div>
+    </div>
+
+    <!-- The container where the QR Code will be injected by JavaScript -->
+    <div id="qrcode">
+        <span class="loading-text">Loading System...</span>
+    </div>
+
+    <!-- The Progress Bar UI -->
+    <div class="timer-container">
+        <div class="timer-bar"><div class="progress" id="progressBar"></div></div>
+        <div id="status">Initializing...</div>
+    </div>
+
+    <!-- Instructions for the user -->
+    <div style="text-align:center; margin-top:40px; width: 100%; display: flex; justify-content: center;">
+        <div style="color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: 1px; white-space: nowrap;">
+            PLEASE SCAN THE QR CODE 
+            <span style="color: #ffffff; margin: 0 15px;">—</span> 
+            <span style="color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: 1px; white-space: nowrap;">ALLOW LOCATION ACCESS</span>
+        </div>
+    </div>
+
+<script>
+    // --- GLOBAL VARIABLES ---
+    let WEB_APP_URL = "";    // Stores the deployed web app URL from the server
+    let REFRESH_MS = 20000;  // Default refresh rate (20 seconds)
+    let qrDiv = null;        // Will hold the QRCode.js instance
+    let timeRemaining = 0;   // Counter for the progress bar loop
+    
+    // --- INITIALIZATION ---
+    // This function runs immediately when the page loads.
+    window.onload = function() {
+        // Check if the script is running inside the Google Apps Script iframe environment.
+        if (typeof google === 'undefined') {
+            document.getElementById('qrcode').innerHTML = "<div style='color:red; text-align:center; padding:20px;'>ERROR:<br>Run this on Google Apps Script.</div>";
+            return;
+        }
+        
+        document.getElementById('status').innerText = "Connecting to server...";
+        
+        // Call the server-side function 'getAdminConfig' to get the URL and refresh rate.
+        google.script.run
+            .withSuccessHandler(initSystem) // On success, run initSystem
+            .withFailureHandler(showError)  // On failure, run showError
+            .getAdminConfig();
+    };
+
+    // Called when server config is successfully received.
+    function initSystem(config) {
+        if (!config || !config.url) { 
+            showError("Config Error."); 
+            return; 
+        }
+        
+        // Set global variables based on server response
+        WEB_APP_URL = config.url;
+        if(config.refreshRate) REFRESH_MS = config.refreshRate; 
+        
+        // Clear the "Loading..." text
+        document.getElementById('qrcode').innerHTML = "";
+        
+        // Initialize the QRCode.js library
+        qrDiv = new QRCode(document.getElementById("qrcode"), { 
+            width: 300, 
+            height: 300, 
+            colorDark : "#000000", 
+            colorLight : "#ffffff", 
+            correctLevel : QRCode.CorrectLevel.H 
+        });
+        
+        // Generate the first QR code immediately
+        updateQR();
+        // Start the countdown timer loop
+        startTimerLoop();
+    }
+
+    // Helper function to display errors on the screen
+    function showError(err) { 
+        document.getElementById('status').innerHTML = "<span style='color:red'>Error: " + err + "</span>"; 
+    }
+
+    // Wrapper function to make google.script.run compatible with async/await
+    function getServerToken() {
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(reject)
+                .getAdminToken(); // Calls server-side 'getAdminToken'
+        });
+    }
+
+    // Function to fetch a new token and update the QR code display
+    async function updateQR() {
+        try {
+            document.getElementById('status').innerText = "Refreshing QR...";
+            
+            // Wait for the server to return a unique token
+            const token = await getServerToken();
+            if (!token) throw new Error("No token received");
+
+            // *** CRITICAL FIX HERE ***
+            // Constructs the full URL. 'code' parameter connects this scan to the specific token.
+            const finalLink = `${WEB_APP_URL}?code=${token}`;
+            
+            // Clear previous QR data and generate the new one
+            qrDiv.clear();
+            qrDiv.makeCode(finalLink);
+            
+            document.getElementById('status').innerText = "Last Update: " + new Date().toLocaleTimeString();
+        } catch (e) { 
+            console.error(e); 
+            document.getElementById('status').innerText = "Connection Error...";
+        }
+    }
+
+    // Handles the visual progress bar and triggers updates when time runs out
+    function startTimerLoop() {
+        timeRemaining = REFRESH_MS / 1000; // Convert milliseconds to seconds
+        
+        setInterval(() => {
+            timeRemaining--;
+            
+            const totalSec = REFRESH_MS / 1000;
+            // Calculate percentage for CSS width
+            const percentage = (timeRemaining / totalSec) * 100;
+            document.getElementById('progressBar').style.width = percentage + "%";
+
+            // If timer hits zero, reset timer and fetch a new QR code
+            if (timeRemaining <= 0) {
+                timeRemaining = totalSec;
+                updateQR();
+            }
+        }, 1000); // Runs every 1 second
+    }
+</script>
+</body>
+</html>
