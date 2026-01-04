@@ -27,6 +27,11 @@ https://github.com/user-attachments/assets/834f7250-ac40-41e6-9ca3-b280ba22bc79
 * **Frontend:** HTML5, CSS3, Vanilla JavaScript (embedded in GAS).
 * **Database:** Google Sheets.
 * **Deployment:** `clasp` (Command Line Apps Script).
+* **QRCode.js:** Dynamic QR code generation
+* **FingerprintJS:** Device-based user identification
+* **Geolocation API:** Real-time location retrieval
+* **Haversine Formula:** Distance calculation between geographic points
+* **Time-Based Token–Hash:** Temporary access control and security validation
 
 ## 📂 File Structure
 
