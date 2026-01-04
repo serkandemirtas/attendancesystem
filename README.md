@@ -57,16 +57,18 @@ clasp push
 
 Create a new Google Sheet and create two tabs with the exact following headers:
 
-Tab 1: Scholars (Master Data) | Column A | Column B | Column C   | Column D   |
-                              | :---| :---| :---|:---|
-                              |     ID   |  Name    | University | Department |
+Tab 1: Scholars (Master Data)
+| Column A | Column B | Column C   | Column D   |
+| :---| :---| :---| :---|
+|     ID   |  Name    | University | Department |
 
 <img width="945" height="401" alt="Ekran görüntüsü 2026-01-04 033049" src="https://github.com/user-attachments/assets/d3c5b472-9ebc-4b6e-9385-fcf5c230c790" />
 
 
-Tab 2: Attendance (Transaction Data) | Column A | Column B |
-                                     | :---| :---|
-                                     |    ID    |   Name   | (The system will automatically add columns C, D, E... for each new month)
+Tab 2: Attendance (Transaction Data)
+| Column A | Column B |
+| :---| :---|
+|    ID    |   Name   | (The system will automatically add columns C, D, E... for each new month)
                                      
 <img width="380" height="331" alt="Ekran görüntüsü 2026-01-04 033101" src="https://github.com/user-attachments/assets/e29f42da-2228-4b72-8c99-9cca94b3fe04" />
 
