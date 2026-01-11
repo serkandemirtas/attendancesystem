@@ -2,7 +2,7 @@
 
 A serverless, anti-cheat attendance management system built with **Google Apps Script** and **Google Sheets**. This project verifies physical presence using **GPS Geofencing** and secures the process with **Dynamic QR Codes** and **Device Fingerprinting**.
 
-## 🚀 Key Features
+##  Key Features
 
 * **Dynamic QR Code Generation:**
     The Admin Panel generates a time-based rotating QR code (TOTP-like logic) that expires every 20 seconds, preventing students from taking photos of the code and sharing it remotely.
